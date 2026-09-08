@@ -58,3 +58,193 @@
 **One golden rule:**\
  `window("ts", "5 minutes")` → **tumbling**.\
  `window("ts", "10 minutes", "5 minutes")` → **sliding/overlapping**.
+
+
+---
+
+# Mind-Map | Exam 
+
+Yes — for exam revision, the best approach is to have **one master query** and then a **tiny mind-map table** underneath it.
+
+ ## 1\. Master example query
+
+ This example shows the major parameters you should recognize in Spark Structured Streaming:
+
+```
+from pyspark.sql.functions import window, count, avg, session_window
+
+query = (
+    spark.readStream
+        .table("orders_cleaned")
+
+        # Event-time column + allowed lateness
+        .withWatermark("order_timestamp", "10 minutes")
+
+        # Tumbling / non-overlapping window
+        .groupBy(
+            window(
+                "order_timestamp",
+                "5 minutes",       # window duration
+                "5 minutes"        # slide duration
+            ).alias("time"),
+            "author"
+        )
+
+        .agg(
+            count("order_id").alias("orders_count"),
+            avg("quantity").alias("avg_quantity")
+        )
+
+        .writeStream
+        .outputMode("update")
+        .trigger(processingTime="1 minute")
+        .option(
+            "checkpointLocation",
+            "dbfs:/path/checkpoint/orders_stats"
+        )
+        .table("orders_stats")
+)
+```
+
+ ### Same query with the important alternatives
+
+```
+SOURCE
+spark.readStream.table(...)
+       │
+       ▼
+EVENT TIME
+order_timestamp
+       │
+       ▼
+WATERMARK
+10 minutes
+       │
+       ▼
+WINDOW
+       │
+       ├── Tumbling:
+       │   window("ts", "5 minutes")
+       │
+       ├── Tumbling explicitly:
+       │   window("ts", "5 minutes", "5 minutes")
+       │
+       └── Sliding:
+           window("ts", "10 minutes", "5 minutes")
+       │
+       ▼
+GROUP BY
+window + author
+       │
+       ▼
+AGGREGATION
+count + avg
+       │
+       ▼
+OUTPUT MODE
+append / update / complete
+       │
+       ▼
+TRIGGER
+processing time / available now / once
+       │
+       ▼
+CHECKPOINT
+recovery + state
+       │
+       ▼
+SINK
+orders_stats
+```
+
+ # 2\. 🧠 Spark Streaming Mind-Map Revision Table
+
+ | Concept | Possible values / examples | Meaning — **remember this** |
+| --- | --- | --- |
+| **Read** | `read` / `readStream` | `read` = batch; `readStream` = streaming |
+| **Source** | `table()`, files, Kafka, etc. | **Where data comes from** |
+| **Event Time** | `order_timestamp` | **When event happened** |
+| **Processing Time** | Spark/system clock | **When Spark processes event** |
+| **Watermark** | `"10 minutes"` | **How late event-time data can be tolerated; enables old state cleanup** |
+| **Window** | `"5 minutes"` | **Time bucket for aggregation** |
+| **Tumbling** | `window("ts","5 min")` | **No overlap** |
+| **Sliding** | `window("ts","10 min","5 min")` | **Overlap** |
+| **Window duration** | `10 min` | **Size of window** |
+| **Slide duration** | `5 min` | **How frequently window starts** |
+| **Duration = Slide** | `5, 5` | **Tumbling / no overlap** |
+| **Duration \> Slide** | `10, 5` | **Sliding / overlap** |
+| **Session** | `session_window("ts","10 min")` | **Activity separated by inactivity** |
+| **GroupBy** | `window + author` | **Group by time + dimension** |
+| **Aggregation** | `count`, `avg`, `sum`, `max`, etc. | **Calculate summary** |
+| **Stateful** | Window aggregation, streaming joins | **Spark remembers previous data** |
+| **Stateless** | `filter`, `select`, simple `withColumn` | **No previous-state dependency** |
+| **Output mode** | `append` | **Only new/final rows** |
+| **Output mode** | `update` | **Only changed rows** |
+| **Output mode** | `complete` | **Entire result table** |
+| **Trigger** | `processingTime="1 minute"` | **Process every 1 minute** |
+| **Trigger** | `availableNow=True` | **Process available data, then stop** |
+| **Trigger** | `once=True` | **One micro-batch, then stop** |
+| **Trigger** | default | **Process as soon as possible** |
+| **writeStream** | `writeStream` | **Write continuously** |
+| **Sink** | table/files/Kafka/etc. | **Where results go** |
+| **Checkpoint** | `checkpointLocation` | **Recovery + progress + state** |
+| **Late data** | Event arrives after event time | **Watermark deals with it** |
+
+ ## 3\. The 10-second exam memory map
+
+```
+                 SPARK STREAMING
+                       │
+       ┌───────────────┼────────────────┐
+       ▼               ▼                ▼
+     TIME            WINDOW           STATE
+       │               │                │
+ ┌─────┴─────┐    ┌────┴─────┐     Watermark
+ │           │    │          │          │
+Event     Processing Tumbling Sliding  Late data
+time       time       │       │         │
+ │                    │       │         └─ cleanup
+When it               │       │
+happened              │       └─ overlap
+                       └─ no overlap
+
+                       │
+                       ▼
+                  AGGREGATION
+                       │
+                count / avg / sum
+                       │
+                       ▼
+                  OUTPUT MODE
+                ┌──────┼──────┐
+              Append  Update Complete
+                │       │       │
+             final    changed  everything
+
+                       │
+                       ▼
+                    TRIGGER
+             when should process?
+                       │
+                       ▼
+                  CHECKPOINT
+             recovery + state
+                       │
+                       ▼
+                     SINK
+               where to write?
+```
+
+ ### ⭐ Absolute must-know distinctions
+
+ | Don't confuse | Correct distinction |
+| --- | --- |
+| **Event time vs Processing time** | Event = when it happened; Processing = when Spark processes it |
+| **Window vs Watermark** | Window = grouping; Watermark = late-data/state management |
+| **Tumbling vs Sliding** | Tumbling = no overlap; Sliding = overlap |
+| **Window duration vs Slide** | Duration = window size; Slide = window start frequency |
+| **Checkpoint vs Sink** | Checkpoint = recovery/state; Sink = actual output |
+| **Append vs Update vs Complete** | Final new rows vs changed rows vs entire result |
+| **Stateless vs Stateful** | No memory needed vs Spark maintains state |
+
+ **Exam shortcut:** Whenever you see `withWatermark + window + groupBy + agg`, immediately think **STATEFUL STREAMING AGGREGATION**. The watermark is there primarily to control late data and allow Spark to eventually remove old state.
