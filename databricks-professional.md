@@ -248,3 +248,25 @@ happened              │       └─ overlap
 | **Stateless vs Stateful** | No memory needed vs Spark maintains state |
 
  **Exam shortcut:** Whenever you see `withWatermark + window + groupBy + agg`, immediately think **STATEFUL STREAMING AGGREGATION**. The watermark is there primarily to control late data and allow Spark to eventually remove old state.
+
+
+---
+
+
+Here is a quick-reference table of the most heavily tested Databricks REST API endpoints for the Professional exam, categorized by use case.
+
+| Category | HTTP Method | Endpoint | Core Exam Use Case |
+|---|---|---|---|
+| Workflows | POST | /api/2.1/jobs/run-now | Triggers an existing job immediately. |
+| Workflows | POST | /api/2.1/jobs/runs/submit | Runs a one-off task without saving a job template. |
+| Workflows | POST | /api/2.1/jobs/runs/repair | Re-runs only the failed tasks in a workflow. |
+| Workflows | GET | /api/2.1/jobs/runs/get | Retrieves the status/metrics of a specific run. |
+| Workflows | POST | /api/2.1/jobs/runs/cancel | Stops an active, running job immediately. |
+| Unity Catalog | POST | /api/2.1/unity-catalog/volumes | Creates a new Managed/External Volume. |
+| Unity Catalog | GET | /api/2.1/unity-catalog/tables | Lists tables inside a schema or catalog. |
+| Compute | POST | /api/2.0/clusters/create | Provisions a new Spark cluster from a configuration. |
+| Compute | POST | /api/2.0/clusters/permanent-delete | Completely wipes out a cluster configuration. |
+| CI/CD / Git | PATCH | /api/2.0/repos/{repo_id} | Pulls/updates the latest code into a Databricks Repo. |
+
+
+ 
